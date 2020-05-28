@@ -2469,25 +2469,27 @@ PredicateLockAcquire(const PREDICATELOCKTARGETTAG *targettag)
 	/* Actually create the lock */
 	CreatePredicateLock(targettag, targettaghash, MySerializableXact);
 
-	/*
-	 * Lock has been acquired. Check whether it should be promoted to a
-	 * coarser granularity, or whether there are finer-granularity locks to
-	 * clean up.
-	 */
-	if (CheckAndPromotePredicateLockRequest(targettag))
-	{
-		/*
-		 * Lock request was promoted to a coarser-granularity lock, and that
-		 * lock was acquired. It will delete this lock and any of its
-		 * children, so we're done.
-		 */
-	}
-	else
-	{
-		/* Clean up any finer-granularity locks */
-		if (GET_PREDICATELOCKTARGETTAG_TYPE(*targettag) != PREDLOCKTAG_TUPLE)
-			DeleteChildTargetLocks(targettag);
-	}
+	/* hikida mod start */
+	/* /\* */
+	/*  * Lock has been acquired. Check whether it should be promoted to a */
+	/*  * coarser granularity, or whether there are finer-granularity locks to */
+	/*  * clean up. */
+	/*  *\/ */
+	/* if (CheckAndPromotePredicateLockRequest(targettag)) */
+	/* { */
+	/* 	/\* */
+	/* 	 * Lock request was promoted to a coarser-granularity lock, and that */
+	/* 	 * lock was acquired. It will delete this lock and any of its */
+	/* 	 * children, so we're done. */
+	/* 	 *\/ */
+	/* } */
+	/* else */
+	/* { */
+	/* 	/\* Clean up any finer-granularity locks *\/ */
+	/* 	if (GET_PREDICATELOCKTARGETTAG_TYPE(*targettag) != PREDLOCKTAG_TUPLE) */
+	/* 		DeleteChildTargetLocks(targettag); */
+	/* } */
+	/* hikida mod end */
 }
 
 
@@ -3287,6 +3289,10 @@ ReleasePredicateLocks(bool isCommit, bool isReadOnlySafe)
 				nextConflict,
 				possibleUnsafeConflict;
 	SERIALIZABLEXACT *roXact;
+
+	/* hikida mod start */
+	return;
+	/* hikida mod end */
 
 	/*
 	 * We can't trust XactReadOnly here, because a transaction which started
@@ -4327,9 +4333,11 @@ CheckTargetForConflictsIn(PREDICATELOCKTARGETTAG *targettag)
 			}
 		}
 		else if (!SxactIsDoomed(sxact)
-				 && (!SxactIsCommitted(sxact)
-					 || TransactionIdPrecedes(GetTransactionSnapshot()->xmin,
-											  sxact->finishedBefore))
+				 /* hikida mod start */
+				 /* && (!SxactIsCommitted(sxact) */
+				 /* 	 || TransactionIdPrecedes(GetTransactionSnapshot()->xmin, */
+				 /* 							  sxact->finishedBefore)) */
+ 				 /* hikida mod end */
 				 && !RWConflictExists(sxact, MySerializableXact))
 		{
 			LWLockRelease(SerializableXactHashLock);
@@ -4340,9 +4348,11 @@ CheckTargetForConflictsIn(PREDICATELOCKTARGETTAG *targettag)
 			 * transaction may have flagged a conflict.
 			 */
 			if (!SxactIsDoomed(sxact)
-				&& (!SxactIsCommitted(sxact)
-					|| TransactionIdPrecedes(GetTransactionSnapshot()->xmin,
-											 sxact->finishedBefore))
+				/* hikida mod start */
+				/* && (!SxactIsCommitted(sxact) */
+				/* 	|| TransactionIdPrecedes(GetTransactionSnapshot()->xmin, */
+				/* 							 sxact->finishedBefore)) */
+				/* hikida mod end */
 				&& !RWConflictExists(sxact, MySerializableXact))
 			{
 				FlagRWConflict(sxact, MySerializableXact);
