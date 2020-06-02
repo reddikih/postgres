@@ -1096,6 +1096,9 @@ InitPredicateLocks(void)
 	 * calculations must agree with PredicateLockShmemSize!
 	 */
 	max_table_size = NPREDICATELOCKTARGETENTS();
+	/* hikida debug start */
+	printf("[hiki] max_table_size:%d\n", max_table_size);
+	/* hikida debug end */
 
 	/*
 	 * Allocate hash table for PREDICATELOCKTARGET structs.  This stores
@@ -1250,8 +1253,21 @@ InitPredicateLocks(void)
 		int			i;
 
 		SHMQueueInit(&RWConflictPool->availableList);
-		requestSize = mul_size((Size) max_table_size,
+		/* hikida mod start */
+		/* requestSize = mul_size((Size) max_table_size, */
+		/* 					   RWConflictDataSize); */
+		requestSize = mul_size((Size) NPREDICATELOCKTARGETENTS(),
 							   RWConflictDataSize);
+		/* hikida mod end */
+		
+		/* hikida debug add start*/
+		printf("[hiki] max_predicate_locks_per_xact:%d MaxBackends:%d, max_prepared_xacts:%d\n",
+			   max_predicate_locks_per_xact,
+			   MaxBackends,
+			   max_prepared_xacts);
+		printf("[hiki] max_table_size:%d, RWConflictDataSize:%d\n", max_table_size, RWConflictDataSize);
+		printf("[hiki] RWConflictPool->element size: %u\n", requestSize);
+		/* hikida debug add end*/
 		RWConflictPool->element = ShmemAlloc(requestSize);
 		/* Add all elements to available list, clean. */
 		memset(RWConflictPool->element, 0, requestSize);
@@ -1320,8 +1336,12 @@ PredicateLockShmemSize(void)
 	/* rw-conflict pool */
 	max_table_size *= 5;
 	size = add_size(size, RWConflictPoolHeaderDataSize);
-	size = add_size(size, mul_size((Size) max_table_size,
+	/* hikida mod start */
+	/* size = add_size(size, mul_size((Size) max_table_size, */
+	/* 							   RWConflictDataSize)); */
+	size = add_size(size, mul_size((Size) NPREDICATELOCKTARGETENTS(),
 								   RWConflictDataSize));
+	/* hikida mod end*/
 
 	/* Head for list of finished serializable transactions. */
 	size = add_size(size, sizeof(SHM_QUEUE));
@@ -2470,25 +2490,30 @@ PredicateLockAcquire(const PREDICATELOCKTARGETTAG *targettag)
 	CreatePredicateLock(targettag, targettaghash, MySerializableXact);
 
 	/* hikida mod start */
-	/* /\* */
-	/*  * Lock has been acquired. Check whether it should be promoted to a */
-	/*  * coarser granularity, or whether there are finer-granularity locks to */
-	/*  * clean up. */
-	/*  *\/ */
-	/* if (CheckAndPromotePredicateLockRequest(targettag)) */
-	/* { */
-	/* 	/\* */
-	/* 	 * Lock request was promoted to a coarser-granularity lock, and that */
-	/* 	 * lock was acquired. It will delete this lock and any of its */
-	/* 	 * children, so we're done. */
-	/* 	 *\/ */
-	/* } */
-	/* else */
-	/* { */
-	/* 	/\* Clean up any finer-granularity locks *\/ */
-	/* 	if (GET_PREDICATELOCKTARGETTAG_TYPE(*targettag) != PREDLOCKTAG_TUPLE) */
-	/* 		DeleteChildTargetLocks(targettag); */
-	/* } */
+	/* I tried to avoid lock escalation for accurate tuple level SIREAD lock
+	 * tracking. But it was very difficult that it is required a tremendous
+	 * huge memory. So I would like to allow to lock escalation until I
+	 * implement the canonical lock remove code. It depends on the optimistic
+	 * theory */
+	/*
+	 * Lock has been acquired. Check whether it should be promoted to a
+	 * coarser granularity, or whether there are finer-granularity locks to
+	 * clean up.
+	 */
+	if (CheckAndPromotePredicateLockRequest(targettag))
+	{
+		/*
+		 * Lock request was promoted to a coarser-granularity lock, and that
+		 * lock was acquired. It will delete this lock and any of its
+		 * children, so we're done.
+		 */
+	}
+	else
+	{
+		/* Clean up any finer-granularity locks */
+		if (GET_PREDICATELOCKTARGETTAG_TYPE(*targettag) != PREDLOCKTAG_TUPLE)
+			DeleteChildTargetLocks(targettag);
+	}
 	/* hikida mod end */
 }
 

@@ -160,6 +160,10 @@ CreateSharedMemoryAndSemaphores(int port)
 
 		elog(DEBUG3, "invoking IpcMemoryCreate(size=%zu)", size);
 
+		/* hikida debug start */
+		printf("[hiki] invoking IpcMemoryCreate(size=%zu), PredicateLocks shared memory:%zu\n", size, PredicateLockShmemSize());
+		/* hikida debug end */
+
 		/*
 		 * Create the shmem segment
 		 */
